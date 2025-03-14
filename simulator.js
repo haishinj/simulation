@@ -625,4 +625,12 @@ const LivechatROISimulator = () => {
           <h3 className="font-medium text-red-700">注意事項</h3>
         </div>
         <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
-          <li>このシミュレ
+          <li>このシミュレーターは参考値であり、実際の結果を保証するものではありません</li>
+<li>FANZA料率は売上合計に基づいて自動計算されます</li>
+<li>求人効果は女性一人当たり売上に影響します（求人数5件ごとに売上が5%向上）</li>
+<li>投資判断は本シミュレーションのみに依存せず、専門家への相談も推奨します</li>
+</ul>
+</div>
+</div>
+);
+};
