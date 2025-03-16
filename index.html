@@ -7,22 +7,92 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- 重要な変更: Recharts.min.jsではなくRecharts.jsを読み込む -->
-  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    .chart-bar {
+      height: 25px;
+      background-color: #4361ee;
+      margin: 5px 0;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    .pie-segment {
+      transition: all 0.3s ease;
+    }
+    .pie-segment:hover {
+      transform: translateX(5px);
+    }
+  </style>
 </head>
 <body class="bg-gray-100 p-4">
   <div id="root" class="max-w-6xl mx-auto"></div>
   
   <script type="text/babel">
-    // React と Recharts のコンポーネントを変数として取得
-    // 重要な変更: window.Rechartsからコンポーネントを取得
     const { useState, useEffect } = React;
-    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts;
 
-    // 以下、元のLivechatROISimulatorコードを貼り付け...
-    // ただし、すべてのRechartsのコンポーネント参照はwindow.Rechartsから取得したものを使う
-    
+    // シンプルな棒グラフコンポーネント
+    const SimpleBarChart = ({ data, xKey, yKey, height = 200 }) => {
+      if (!data || data.length === 0) return <div>データがありません</div>;
+      
+      const maxValue = Math.max(...data.map(item => Math.abs(item[yKey] || 0)));
+      
+      return (
+        <div style={{height: `${height}px`, position: 'relative', marginTop: '20px'}}>
+          {data.map((item, index) => {
+            const value = item[yKey] || 0;
+            const percent = (Math.abs(value) / maxValue) * 100;
+            const isNegative = value < 0;
+            
+            return (
+              <div key={index} style={{display: 'flex', alignItems: 'center', marginBottom: '10px'}}>
+                <div style={{width: '50px', textAlign: 'right', marginRight: '10px'}}>{item[xKey]}</div>
+                <div 
+                  className="chart-bar" 
+                  style={{
+                    width: `${percent}%`, 
+                    backgroundColor: isNegative ? '#f94144' : '#4361ee',
+                  }}
+                ></div>
+                <div style={{marginLeft: '10px'}}>{value.toLocaleString()}万円</div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    // シンプルな円グラフコンポーネント
+    const SimplePieChart = ({ data, nameKey, valueKey }) => {
+      if (!data || data.length === 0) return <div>データがありません</div>;
+      
+      const total = data.reduce((sum, item) => sum + (item[valueKey] || 0), 0);
+      const COLORS = ['#4361ee', '#3a86ff', '#4cc9f0', '#06d6a0', '#90be6d', '#f94144', '#f8961e'];
+      
+      return (
+        <div className="flex flex-wrap justify-center mt-4">
+          {data.map((item, index) => {
+            const value = item[valueKey] || 0;
+            const percent = total > 0 ? (value / total) * 100 : 0;
+            if (percent < 1) return null; // 1%未満は表示しない
+            
+            return (
+              <div key={index} className="flex items-center m-2 pie-segment">
+                <div 
+                  className="w-4 h-4 rounded-full mr-2" 
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }} 
+                ></div>
+                <div>
+                  <span className="text-sm">{item[nameKey]}: </span>
+                  <span className="text-sm font-bold">{value.toLocaleString()}万円</span>
+                  <span className="text-xs ml-1">({percent.toFixed(1)}%)</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
     const LivechatROISimulator = () => {
       // 月間売上関連の設定
       const [selfSales, setSelfSales] = useState(300);
@@ -190,6 +260,16 @@
       // 色の設定
       const COLORS = ['#4361ee', '#3a86ff', '#4cc9f0', '#06d6a0', '#90be6d', '#f94144', '#f8961e'];
       
+      // 収益推移用の簡易データ（表示用に24ヶ月分すべてではなく一部のみ）
+      const simplifiedChartData = [
+        { month: "1", cumulativeProfit: -initialInvestment + results.monthlyNetProfit },
+        { month: "3", cumulativeProfit: -initialInvestment + (results.monthlyNetProfit * 3) },
+        { month: "6", cumulativeProfit: -initialInvestment + (results.monthlyNetProfit * 6) },
+        { month: "12", cumulativeProfit: -initialInvestment + (results.monthlyNetProfit * 12) },
+        { month: "18", cumulativeProfit: -initialInvestment + (results.monthlyNetProfit * 18) },
+        { month: "24", cumulativeProfit: -initialInvestment + (results.monthlyNetProfit * 24) }
+      ];
+      
       return (
         <div className="bg-gray-50 p-4 rounded-lg shadow-lg">
           <h1 className="text-xl font-bold text-center mb-4 pb-2 border-b-2 border-blue-300">
@@ -253,24 +333,330 @@
                 </div>
               </div>
               
-              {/* 以下は元のコードと同じ... */}
-
               {/* コスト関連 */}
-              {/* 省略 */}
+              <div className="mb-4">
+                <h3 className="font-medium mb-2 bg-green-100 p-2 rounded">コスト関連</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>広告費</span>
+                      <span className="text-green-600">{adCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      step="10"
+                      value={adCost}
+                      onChange={(e) => setAdCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>家賃</span>
+                      <span className="text-green-600">{rentCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      step="5"
+                      value={rentCost}
+                      onChange={(e) => setRentCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>通信・光熱費</span>
+                      <span className="text-green-600">{utilityCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="15"
+                      step="5"
+                      value={utilityCost}
+                      onChange={(e) => setUtilityCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>雑費</span>
+                      <span className="text-green-600">{miscCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="1"
+                      value={miscCost}
+                      onChange={(e) => setMiscCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>マネージャー人件費</span>
+                      <span className="text-green-600">{managerCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="10"
+                      value={managerCost}
+                      onChange={(e) => setManagerCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>女性料率</span>
+                      <span className="text-green-600">{femaleRate}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="30"
+                      max="40"
+                      step="1"
+                      value={femaleRate}
+                      onChange={(e) => setFemaleRate(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>紹介料</span>
+                      <span className="text-green-600">{referralRate}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="9"
+                      step="1"
+                      value={referralRate}
+                      onChange={(e) => setReferralRate(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
               
               {/* 初期投資関連 */}
-              {/* 省略 */}
+              <div className="mb-4">
+                <h3 className="font-medium mb-2 bg-yellow-100 p-2 rounded">初期投資関連</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>初期投資額(合計)</span>
+                      <span className="text-yellow-600">{initialInvestment}万円</span>
+                    </label>
+                    <div className="w-full h-2 bg-gray-200 rounded-lg"></div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>物件初期費用</span>
+                      <span className="text-yellow-600">{propertyInitialCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="10"
+                      value={propertyInitialCost}
+                      onChange={(e) => setPropertyInitialCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>内装費</span>
+                      <span className="text-yellow-600">{interiorCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="300"
+                      step="10"
+                      value={interiorCost}
+                      onChange={(e) => setInteriorCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>機材費</span>
+                      <span className="text-yellow-600">{equipmentCost}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="10"
+                      value={equipmentCost}
+                      onChange={(e) => setEquipmentCost(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
               
               {/* 求人関連 */}
-              {/* 省略 */}
+              <div className="mb-4">
+                <h3 className="font-medium mb-2 bg-purple-100 p-2 rounded">求人関連</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>求人数</span>
+                      <span className="text-purple-600">{recruitmentCount}件</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      step="5"
+                      value={recruitmentCount}
+                      onChange={(e) => setRecruitmentCount(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>入店率</span>
+                      <span className="text-purple-600">{entryRate}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="80"
+                      step="10"
+                      value={entryRate}
+                      onChange={(e) => setEntryRate(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="text-sm bg-yellow-50 p-2 rounded border border-yellow-200">
+                    <p>求人効果: 女性一人当たり売上 {(salesPerFemale * calculateQualityBonus()).toFixed(1)}万円</p>
+                    <p className="text-xs text-gray-600">（求人数が5件増えるごとに売上が5%向上）</p>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* 右側：結果表示 */}
-            {/* 省略 */}
+            <div>
+              <div className="bg-white p-4 rounded-lg shadow mb-4">
+                <h2 className="text-lg font-semibold mb-4 pb-1 border-b border-gray-200">シミュレーション結果</h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div className="bg-blue-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">自社売上</div>
+                    <div className="text-lg font-bold">{selfSales.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">パートナー売上</div>
+                    <div className="text-lg font-bold">{partnerSales.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">合計売上</div>
+                    <div className="text-lg font-bold">{results.totalSales.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">FANZA料率</div>
+                    <div className="text-lg font-bold">{results.fanzaRate.toFixed(1)}%</div>
+                  </div>
+                </div>
+                
+                <h3 className="font-medium mb-2 text-blue-700">月間収支</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div className="bg-green-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">月間総収益</div>
+                    <div className="text-lg font-bold">{results.monthlyTotalRevenue.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-red-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">総コスト</div>
+                    <div className="text-lg font-bold">{results.totalCost.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-red-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">女性手数料</div>
+                    <div className="text-lg font-bold">{results.femaleFee.toLocaleString()}万円</div>
+                  </div>
+                  <div className="bg-red-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">紹介料</div>
+                    <div className="text-lg font-bold">{results.referralFee.toLocaleString()}万円</div>
+                  </div>
+                  <div className={`${results.monthlyNetProfit >= 0 ? 'bg-green-100' : 'bg-red-100'} p-2 rounded col-span-1 sm:col-span-2`}>
+                    <div className="text-sm text-gray-600">月間純利益</div>
+                    <div className="text-xl font-bold">{Math.round(results.monthlyNetProfit).toLocaleString()}万円</div>
+                  </div>
+                </div>
+                
+                <h3 className="font-medium mb-2 text-green-700">期間別収支</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div className={`${results.cumulativeProfit8Months >= 0 ? 'bg-green-50' : 'bg-red-50'} p-2 rounded`}>
+                    <div className="text-sm text-gray-600">8ヶ月累積</div>
+                    <div className="text-lg font-bold">{results.cumulativeProfit8Months.toLocaleString()}万円</div>
+                    <div className="text-sm">ROI: {results.roi8Months.toFixed(1)}%</div>
+                  </div>
+                  <div className={`${results.cumulativeProfit12Months >= 0 ? 'bg-green-50' : 'bg-red-50'} p-2 rounded`}>
+                    <div className="text-sm text-gray-600">12ヶ月累積</div>
+                    <div className="text-lg font-bold">{results.cumulativeProfit12Months.toLocaleString()}万円</div>
+                    <div className="text-sm">ROI: {results.roi12Months.toFixed(1)}%</div>
+                  </div>
+                  <div className={`${results.cumulativeProfit24Months >= 0 ? 'bg-green-50' : 'bg-red-50'} p-2 rounded`}>
+                    <div className="text-sm text-gray-600">24ヶ月累積</div>
+                    <div className="text-lg font-bold">{results.cumulativeProfit24Months.toLocaleString()}万円</div>
+                    <div className="text-sm">ROI: {results.roi24Months.toFixed(1)}%</div>
+                  </div>
+                </div>
+                
+                <h3 className="font-medium mb-2 text-purple-700">KPI指標</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div className="bg-purple-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">投資回収月</div>
+                    <div className="text-lg font-bold">
+                      {results.paybackMonth === 999 ? '回収不可' : `${results.paybackMonth}ヶ月`}
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 p-2 rounded">
+                    <div className="text-sm text-gray-600">単月黒字化</div>
+                    <div className="text-lg font-bold">
+                      {results.monthlyNetProfit >= 0 ? '初月から黒字' : '赤字継続'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow mb-4">
+                <h3 className="font-medium mb-3 text-center bg-blue-50 p-1 rounded">収益推移（24ヶ月）</h3>
+                <div className="p-2">
+                  <SimpleBarChart data={simplifiedChartData} xKey="month" yKey="cumulativeProfit" height={200} />
+                </div>
+                <div className="text-xs text-center text-gray-500 mt-2">※ 各月の累積利益を表示</div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="font-medium mb-3 text-center bg-blue-50 p-1 rounded">コスト内訳</h3>
+                <SimplePieChart data={costBreakdownData} nameKey="name" valueKey="value" />
+              </div>
+            </div>
           </div>
           
-          {/* 注意事項 */}
-          {/* 省略 */}
+          <div className="mt-4 p-3 bg-white rounded-lg shadow">
+            <div className="flex items-center mb-2">
+              <div className="w-1 h-4 bg-red-400 rounded mr-2"></div>
+              <h3 className="font-medium text-red-700">注意事項</h3>
+            </div>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+              <li>このシミュレーターは参考値であり、実際の結果を保証するものではありません</li>
+              <li>FANZA料率は売上合計に基づいて自動計算されます</li>
+              <li>求人効果は女性一人当たり売上に影響します（求人数5件ごとに売上が5%向上）</li>
+              <li>投資判断は本シミュレーションのみに依存せず、専門家への相談も推奨します</li>
+            </ul>
+          </div>
         </div>
       );
     };
