@@ -1,48 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>React & Recharts テスト</title>
+  <title>React テスト</title>
   <meta charset="UTF-8">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+  <!-- Rechartsは一時的に除外し、基本的なReactのみで試す -->
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    .chart-container {
+      width: 600px;
+      margin: 0 auto;
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+    }
+    .chart-bar {
+      height: 30px;
+      background-color: #4361ee;
+      margin: 10px 0;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    button {
+      background-color: #4361ee;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #3a56d4;
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>
   
   <script type="text/babel">
-    const { useState } = React;
-    // 重要: Rechartsはグローバル変数として直接アクセス
-    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } = window.Recharts;
+    const { useState, useEffect } = React;
     
-    const ChartApp = () => {
-      const data = [
-        {name: '1月', value: 400},
-        {name: '2月', value: 300},
-        {name: '3月', value: 600},
-        {name: '4月', value: 800},
-        {name: '5月', value: 500}
-      ];
+    // Rechartsを使わないシンプルな可視化コンポーネント
+    const SimpleChart = () => {
+      const [data, setData] = useState([
+        {name: '1月', value: 40},
+        {name: '2月', value: 30},
+        {name: '3月', value: 60},
+        {name: '4月', value: 80},
+        {name: '5月', value: 50}
+      ]);
+      
+      const maxValue = Math.max(...data.map(item => item.value));
+      
+      const randomizeData = () => {
+        const newData = data.map(item => ({
+          ...item,
+          value: Math.floor(Math.random() * 100)
+        }));
+        setData(newData);
+      };
       
       return (
         <div style={{textAlign: 'center', marginTop: '50px'}}>
-          <h1 style={{color: 'blue'}}>Rechartsテスト</h1>
-          <div style={{width: '100%', height: 300}}>
-            <LineChart width={500} height={300} data={data} margin={{top: 5, right: 30, left: 20, bottom: 5}}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="value" stroke="#8884d8" />
-            </LineChart>
+          <h1 style={{color: 'blue'}}>シンプルチャートデモ</h1>
+          <p>Rechartsなしでもシンプルなグラフを表示できます</p>
+          
+          <div className="chart-container">
+            {data.map((item, index) => (
+              <div key={index} style={{display: 'flex', alignItems: 'center'}}>
+                <div style={{width: '60px', textAlign: 'right', marginRight: '10px'}}>{item.name}</div>
+                <div 
+                  className="chart-bar" 
+                  style={{width: `${(item.value / maxValue) * 100}%`}}
+                ></div>
+                <div style={{marginLeft: '10px'}}>{item.value}</div>
+              </div>
+            ))}
           </div>
+          
+          <button onClick={randomizeData}>データをランダム化</button>
         </div>
       );
     };
     
-    ReactDOM.render(<ChartApp />, document.getElementById('root'));
+    ReactDOM.render(<SimpleChart />, document.getElementById('root'));
   </script>
 </body>
 </html>
