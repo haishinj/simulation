@@ -1,92 +1,282 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <title>React テスト</title>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ライブチャット代理店向け収益シミュレーター</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Rechartsは一時的に除外し、基本的なReactのみで試す -->
+  <!-- 重要な変更: Recharts.min.jsではなくRecharts.jsを読み込む -->
+  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-  <style>
-    .chart-container {
-      width: 600px;
-      margin: 0 auto;
-      border: 1px solid #ccc;
-      padding: 20px;
-      border-radius: 8px;
-      background-color: #f9f9f9;
-    }
-    .chart-bar {
-      height: 30px;
-      background-color: #4361ee;
-      margin: 10px 0;
-      border-radius: 4px;
-      transition: width 0.5s ease;
-    }
-    button {
-      background-color: #4361ee;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin: 10px;
-    }
-    button:hover {
-      background-color: #3a56d4;
-    }
-  </style>
 </head>
-<body>
-  <div id="root"></div>
+<body class="bg-gray-100 p-4">
+  <div id="root" class="max-w-6xl mx-auto"></div>
   
   <script type="text/babel">
+    // React と Recharts のコンポーネントを変数として取得
+    // 重要な変更: window.Rechartsからコンポーネントを取得
     const { useState, useEffect } = React;
+    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts;
+
+    // 以下、元のLivechatROISimulatorコードを貼り付け...
+    // ただし、すべてのRechartsのコンポーネント参照はwindow.Rechartsから取得したものを使う
     
-    // Rechartsを使わないシンプルな可視化コンポーネント
-    const SimpleChart = () => {
-      const [data, setData] = useState([
-        {name: '1月', value: 40},
-        {name: '2月', value: 30},
-        {name: '3月', value: 60},
-        {name: '4月', value: 80},
-        {name: '5月', value: 50}
-      ]);
+    const LivechatROISimulator = () => {
+      // 月間売上関連の設定
+      const [selfSales, setSelfSales] = useState(300);
+      const [partnerSales, setPartnerSales] = useState(0);
+      const [salesPerFemale, setSalesPerFemale] = useState(50);
       
-      const maxValue = Math.max(...data.map(item => item.value));
+      // コスト関連の設定
+      const [adCost, setAdCost] = useState(10); // 最低値は10のため
+      const [rentCost, setRentCost] = useState(15);
+      const [utilityCost, setUtilityCost] = useState(5);
+      const [miscCost, setMiscCost] = useState(3);
+      const [managerCost, setManagerCost] = useState(0);
+      const [femaleRate, setFemaleRate] = useState(30);
+      const [referralRate, setReferralRate] = useState(6);
       
-      const randomizeData = () => {
-        const newData = data.map(item => ({
-          ...item,
-          value: Math.floor(Math.random() * 100)
-        }));
-        setData(newData);
+      // 初期投資関連の設定
+      const [propertyInitialCost, setPropertyInitialCost] = useState(30);
+      const [interiorCost, setInteriorCost] = useState(30);
+      const [equipmentCost, setEquipmentCost] = useState(10);
+      // 初期投資額は物件初期費用、内装費、機材費の合計
+      const initialInvestment = propertyInitialCost + interiorCost + equipmentCost;
+      
+      // 求人関連の設定
+      const [recruitmentCount, setRecruitmentCount] = useState(3);
+      const [entryRate, setEntryRate] = useState(50);
+      
+      // 計算結果を保持するstate
+      const [results, setResults] = useState({
+        totalSales: 0,
+        fanzaRate: 0,
+        selfRevenue: 0,
+        partnerRevenue: 0,
+        monthlyTotalRevenue: 0,
+        femaleFee: 0,
+        referralFee: 0,
+        totalCost: 0,
+        monthlyNetProfit: 0,
+        paybackMonth: 0,
+        roi8Months: 0,
+        roi12Months: 0,
+        roi24Months: 0,
+        cumulativeProfit8Months: 0,
+        cumulativeProfit12Months: 0,
+        cumulativeProfit24Months: 0
+      });
+      
+      // チャート用データ
+      const [chartData, setChartData] = useState([]);
+      const [costBreakdownData, setCostBreakdownData] = useState([]);
+      
+      // 女性の質の向上計算
+      const calculateQualityBonus = () => {
+        return 1 + (Math.floor(recruitmentCount / 5) * 0.05);
       };
       
+      // FANZAの料率を計算
+      const calculateFanzaRate = (totalSales) => {
+        if (totalSales >= 4000) return 0.60;
+        if (totalSales >= 3000) return 0.59;
+        if (totalSales >= 2000) return 0.58;
+        if (totalSales >= 1000) return 0.57;
+        if (totalSales >= 600) return 0.56;
+        return 0.55;
+      };
+      
+      // すべての計算を実行
+      const calculateAll = () => {
+        // 求人効果による女性一人当たり売上の調整
+        const adjustedSalesPerFemale = salesPerFemale * calculateQualityBonus();
+        
+        // 合計売上の計算
+        const totalSales = selfSales + partnerSales;
+        
+        // FANZA料率の計算
+        const fanzaRate = calculateFanzaRate(totalSales);
+        
+        // 収益計算
+        const selfRevenue = selfSales * fanzaRate;
+        const partnerRevenue = partnerSales * fanzaRate;
+        const monthlyTotalRevenue = selfRevenue + partnerRevenue;
+        
+        // 女性手数料と紹介料
+        const femaleFee = monthlyTotalRevenue * (femaleRate / 100);
+        const referralFee = monthlyTotalRevenue * (referralRate / 100);
+        
+        // 総コスト
+        const totalCost = adCost + rentCost + utilityCost + miscCost + managerCost;
+        
+        // 月間純利益
+        const monthlyNetProfit = monthlyTotalRevenue - femaleFee - referralFee - totalCost;
+        
+        // 投資回収月の計算
+        const paybackMonth = monthlyNetProfit > 0 ? Math.ceil(initialInvestment / monthlyNetProfit) : 999;
+        
+        // 期間別ROIの計算
+        const cumulativeProfit8Months = monthlyNetProfit * 8;
+        const cumulativeProfit12Months = monthlyNetProfit * 12;
+        const cumulativeProfit24Months = monthlyNetProfit * 24;
+        
+        const roi8Months = (cumulativeProfit8Months / initialInvestment) * 100;
+        const roi12Months = (cumulativeProfit12Months / initialInvestment) * 100;
+        const roi24Months = (cumulativeProfit24Months / initialInvestment) * 100;
+        
+        // 結果をセット
+        setResults({
+          totalSales,
+          fanzaRate: fanzaRate * 100,
+          selfRevenue,
+          partnerRevenue,
+          monthlyTotalRevenue,
+          femaleFee,
+          referralFee,
+          totalCost,
+          monthlyNetProfit,
+          paybackMonth,
+          roi8Months,
+          roi12Months,
+          roi24Months,
+          cumulativeProfit8Months,
+          cumulativeProfit12Months,
+          cumulativeProfit24Months
+        });
+        
+        // チャートデータの生成
+        generateChartData(monthlyNetProfit, initialInvestment);
+        
+        // コスト内訳のデータ生成
+        setCostBreakdownData([
+          { name: '広告費', value: adCost },
+          { name: '家賃', value: rentCost },
+          { name: '通信・光熱費', value: utilityCost },
+          { name: '雑費', value: miscCost },
+          { name: 'マネージャー人件費', value: managerCost },
+          { name: '女性手数料', value: femaleFee },
+          { name: '紹介料', value: referralFee }
+        ]);
+      };
+      
+      // チャートデータの生成
+      const generateChartData = (monthlyNetProfit, initialInvestment) => {
+        const data = [];
+        let cumulativeProfit = -initialInvestment;
+        
+        for (let month = 1; month <= 24; month++) {
+          cumulativeProfit += monthlyNetProfit;
+          data.push({
+            month: month,
+            profit: monthlyNetProfit,
+            cumulativeProfit: cumulativeProfit
+          });
+        }
+        
+        setChartData(data);
+      };
+      
+      // 入力値が変更されたときに再計算
+      useEffect(() => {
+        calculateAll();
+      }, [
+        selfSales, partnerSales, salesPerFemale, adCost, rentCost, utilityCost, 
+        miscCost, managerCost, femaleRate, referralRate, 
+        propertyInitialCost, interiorCost, equipmentCost, recruitmentCount, entryRate
+      ]);
+      
+      // 色の設定
+      const COLORS = ['#4361ee', '#3a86ff', '#4cc9f0', '#06d6a0', '#90be6d', '#f94144', '#f8961e'];
+      
       return (
-        <div style={{textAlign: 'center', marginTop: '50px'}}>
-          <h1 style={{color: 'blue'}}>シンプルチャートデモ</h1>
-          <p>Rechartsなしでもシンプルなグラフを表示できます</p>
+        <div className="bg-gray-50 p-4 rounded-lg shadow-lg">
+          <h1 className="text-xl font-bold text-center mb-4 pb-2 border-b-2 border-blue-300">
+            ライブチャット代理店向け<br className="sm:hidden"/>収益シミュレーター
+          </h1>
           
-          <div className="chart-container">
-            {data.map((item, index) => (
-              <div key={index} style={{display: 'flex', alignItems: 'center'}}>
-                <div style={{width: '60px', textAlign: 'right', marginRight: '10px'}}>{item.name}</div>
-                <div 
-                  className="chart-bar" 
-                  style={{width: `${(item.value / maxValue) * 100}%`}}
-                ></div>
-                <div style={{marginLeft: '10px'}}>{item.value}</div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 左側：入力フォーム */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-4 pb-1 border-b border-gray-200">パラメータ設定</h2>
+              
+              {/* 月間売上関連 */}
+              <div className="mb-4">
+                <h3 className="font-medium mb-2 bg-blue-100 p-2 rounded">月間売上関連</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>自社売上</span>
+                      <span className="text-blue-600">{selfSales}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={selfSales}
+                      onChange={(e) => setSelfSales(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>パートナー売上</span>
+                      <span className="text-blue-600">{partnerSales}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={partnerSales}
+                      onChange={(e) => setPartnerSales(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex justify-between">
+                      <span>女性一人当たり売上</span>
+                      <span className="text-blue-600">{salesPerFemale}万円</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="500"
+                      step="10"
+                      value={salesPerFemale}
+                      onChange={(e) => setSalesPerFemale(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
               </div>
-            ))}
+              
+              {/* 以下は元のコードと同じ... */}
+
+              {/* コスト関連 */}
+              {/* 省略 */}
+              
+              {/* 初期投資関連 */}
+              {/* 省略 */}
+              
+              {/* 求人関連 */}
+              {/* 省略 */}
+            </div>
+            
+            {/* 右側：結果表示 */}
+            {/* 省略 */}
           </div>
           
-          <button onClick={randomizeData}>データをランダム化</button>
+          {/* 注意事項 */}
+          {/* 省略 */}
         </div>
       );
     };
     
-    ReactDOM.render(<SimpleChart />, document.getElementById('root'));
+    // レンダリング
+    ReactDOM.render(<LivechatROISimulator />, document.getElementById('root'));
   </script>
 </body>
 </html>
